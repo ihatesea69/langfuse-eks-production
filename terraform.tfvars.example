@@ -1,0 +1,27 @@
+# =============================================================================
+# Example terraform.tfvars
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values.
+# =============================================================================
+
+# Required
+domain            = "langfuse.example.com"
+route53_zone_name = "example.com"
+
+# Network access control
+ingress_inbound_cidrs = [
+  "10.0.0.0/8",
+  "203.0.113.50/32",
+]
+
+# ALB scheme
+alb_scheme = "internal"
+
+# Optional overrides
+# name                    = "langfuse"
+# vpc_cidr                = "10.0.0.0/16"
+# use_single_nat_gateway  = false
+# kubernetes_version      = "1.32"
+# postgres_max_capacity   = 8.0
+# langfuse_web_replicas   = 2
+# langfuse_worker_replicas = 2
