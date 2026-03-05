@@ -50,6 +50,24 @@ resource "aws_acm_certificate_validation" "cert" {
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
 
+# =============================================================================
+# Wait for ALB to be created by the AWS Load Balancer Controller
+# =============================================================================
+# The ALB is created asynchronously by the controller after the Kubernetes
+# Ingress resource is applied (via Helm release). Terraform's data.aws_lb
+# cannot find it immediately because it doesn't exist during plan/apply.
+# A time_sleep gives the controller enough time to reconcile the Ingress
+# resource and provision the ALB before we try to look it up.
+# =============================================================================
+resource "time_sleep" "wait_for_alb" {
+  create_duration = "120s" # Wait 2 minutes for ALB controller to provision ALB
+
+  depends_on = [
+    helm_release.langfuse,
+    helm_release.aws_load_balancer_controller,
+  ]
+}
+
 # Get the ALB details (created by AWS Load Balancer Controller)
 data "aws_lb" "ingress" {
   tags = {
@@ -59,8 +77,7 @@ data "aws_lb" "ingress" {
   }
 
   depends_on = [
-    helm_release.aws_load_balancer_controller,
-    helm_release.langfuse
+    time_sleep.wait_for_alb,
   ]
 }
 

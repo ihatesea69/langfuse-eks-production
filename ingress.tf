@@ -326,9 +326,24 @@ resource "helm_release" "aws_load_balancer_controller" {
     value = local.vpc_id
   }
 
+  # -------------------------------------------------------------------------
+  # Fargate IRSA Fix: Explicitly set the IAM role ARN on the controller pods.
+  # On Fargate the IRSA mutating webhook derives AWS_ROLE_ARN from the
+  # ServiceAccount annotation, but a timing issue can cause pods launched
+  # before the annotation propagates to receive a truncated/wrong role ARN
+  # (e.g. "role/aws-load-balancer-controller" instead of the full name
+  # "role/langfuse-aws-load-balancer-controller").  Setting the env var
+  # explicitly via Helm values eliminates this race condition.
+  # -------------------------------------------------------------------------
+  set {
+    name  = "podAnnotations.eks\\.amazonaws\\.com/role-arn"
+    value = aws_iam_role.aws_load_balancer_controller.arn
+  }
+
   depends_on = [
     kubernetes_service_account.aws_load_balancer_controller,
     aws_iam_role.aws_load_balancer_controller,
     aws_eks_fargate_profile.namespaces,
+    terraform_data.coredns_fargate_toleration, # Ensure CoreDNS is running so controller pods can resolve DNS
   ]
 }
