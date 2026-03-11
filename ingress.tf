@@ -299,7 +299,7 @@ resource "helm_release" "aws_load_balancer_controller" {
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
   namespace  = "kube-system"
-  version    = "1.7.1"
+  version    = "1.7.2"
 
   set {
     name  = "clusterName"
@@ -344,6 +344,6 @@ resource "helm_release" "aws_load_balancer_controller" {
     kubernetes_service_account.aws_load_balancer_controller,
     aws_iam_role.aws_load_balancer_controller,
     aws_eks_fargate_profile.namespaces,
-    terraform_data.coredns_fargate_toleration, # Ensure CoreDNS is running so controller pods can resolve DNS
+    terraform_data.coredns_fargate_patch, # Ensure CoreDNS is running so controller pods can resolve DNS
   ]
 }

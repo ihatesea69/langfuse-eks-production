@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the old CoreDNS Fargate workaround with an idempotent patch that
+  removes the EC2-only annotation, adds the Fargate toleration, and restarts
+  CoreDNS during apply.
+- Bumped the AWS Load Balancer Controller Helm chart from `1.7.1` to `1.7.2`
+  to match AWS's documented minimum recommendation (`v2.7.2+`).
+- Increased Langfuse web/worker startup grace periods to reduce first-install
+  CrashLoopBackOffs while migrations complete on EKS Fargate.
+
 ## [1.0.0] - 2025-03-04
 
 ### Added

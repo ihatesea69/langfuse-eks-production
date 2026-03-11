@@ -153,14 +153,13 @@ resource "aws_cloudwatch_log_group" "eks" {
 }
 
 # =============================================================================
-# CoreDNS Fargate Toleration Fix
+# CoreDNS Fargate Scheduling Fix
 # =============================================================================
-# By default CoreDNS lacks the toleration for the Fargate compute-type taint,
-# which prevents it from being scheduled. This patch adds the required
-# toleration so CoreDNS can run on Fargate nodes.
-# Without this, all pods fail to resolve DNS (cannot connect to RDS, cannot
-# pull Docker images, etc.).
-resource "terraform_data" "coredns_fargate_toleration" {
+# Current EKS guidance still requires CoreDNS to be restarted onto Fargate, and
+# recent platform versions can also require the Fargate taint toleration to be
+# present. This patch removes the legacy EC2-only annotation and ensures the
+# toleration exists before restarting CoreDNS.
+resource "terraform_data" "coredns_fargate_patch" {
   # Re-run only when the EKS cluster or Fargate profiles change
   triggers_replace = [
     aws_eks_cluster.langfuse.id,
@@ -170,9 +169,29 @@ resource "terraform_data" "coredns_fargate_toleration" {
   provisioner "local-exec" {
     interpreter = ["PowerShell", "-Command"]
     command     = <<-EOT
+      $ErrorActionPreference = "Stop"
       aws eks update-kubeconfig --name ${aws_eks_cluster.langfuse.name} --region ${data.aws_region.current.id}
-      $patch = '[{\"op\":\"add\",\"path\":\"/spec/template/spec/tolerations/-\",\"value\":{\"key\":\"eks.amazonaws.com/compute-type\",\"operator\":\"Equal\",\"value\":\"fargate\",\"effect\":\"NoSchedule\"}}]'
-      kubectl patch deployment coredns -n kube-system --type=json -p $patch
+
+      $deployment = "deployment/coredns"
+      for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        kubectl -n kube-system get $deployment | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+          break
+        }
+
+        if ($attempt -eq 19) {
+          throw "CoreDNS deployment was not created in time."
+        }
+
+        Start-Sleep -Seconds 15
+      }
+
+      kubectl -n kube-system annotate deployment coredns eks.amazonaws.com/compute-type- --overwrite | Out-Null
+
+      $patch = '{"spec":{"template":{"spec":{"tolerations":[{"key":"eks.amazonaws.com/compute-type","operator":"Equal","value":"fargate","effect":"NoSchedule"}]}}}}'
+      kubectl -n kube-system patch deployment coredns --type=strategic -p $patch | Out-Null
+
+      kubectl -n kube-system rollout restart $deployment
       kubectl -n kube-system rollout status deployment/coredns --timeout=300s
     EOT
   }

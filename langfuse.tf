@@ -29,11 +29,13 @@ langfuse:
   web:
     replicas: ${var.langfuse_web_replicas}
     livenessProbe:
-      initialDelaySeconds: 60
+      initialDelaySeconds: 300
     readinessProbe:
-      initialDelaySeconds: 60
+      initialDelaySeconds: 120
   worker:
     replicas: ${var.langfuse_worker_replicas}
+    livenessProbe:
+      initialDelaySeconds: 120
 postgresql:
   deploy: false
   host: ${aws_rds_cluster.postgres.endpoint}:5432
@@ -221,7 +223,7 @@ resource "helm_release" "langfuse" {
     kubernetes_persistent_volume.clickhouse_zookeeper,
     kubernetes_service_account.aws_load_balancer_controller,
     helm_release.aws_load_balancer_controller,
-    terraform_data.coredns_fargate_toleration, # Ensure CoreDNS is running before deploying Langfuse
+    terraform_data.coredns_fargate_patch, # Ensure CoreDNS is running before deploying Langfuse
   ]
 }
 

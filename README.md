@@ -174,14 +174,12 @@ Aurora cluster (~10 min), and ElastiCache (~8 min).
 
 ### 4. Post-deploy pod restart
 
-Due to a race condition in the upstream Helm chart, ClickHouse pods must be
-restarted after the first apply:
+Terraform now patches and restarts CoreDNS during apply so it can schedule on
+Fargate. ClickHouse pods can still require a one-time restart after the first
+apply due to an upstream Helm chart race:
 
 ```bash
 aws eks update-kubeconfig --name langfuse --region us-east-1
-
-kubectl -n kube-system rollout restart deploy coredns
-kubectl -n kube-system rollout status deploy coredns
 
 kubectl -n langfuse delete pod langfuse-clickhouse-shard0-0 \
   langfuse-clickhouse-shard0-1 langfuse-clickhouse-shard0-2
@@ -189,6 +187,13 @@ kubectl -n langfuse delete pod langfuse-zookeeper-0 \
   langfuse-zookeeper-1 langfuse-zookeeper-2
 
 kubectl -n langfuse get pods -w
+```
+
+If DNS resolution is still broken after the first apply, re-run:
+
+```bash
+kubectl -n kube-system rollout restart deploy coredns
+kubectl -n kube-system rollout status deploy coredns
 ```
 
 ### 5. Access Langfuse
